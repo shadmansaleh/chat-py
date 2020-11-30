@@ -5,7 +5,6 @@ import threading
 import signal
 # import time
 import json
-import re
 
 # Constents
 PORT = 5050
@@ -21,10 +20,6 @@ ACK = "<<!ACK<<"
 def interupt_handler(sig_recv, frame):
     send(DISCONNECT)
     client.close()
-    # print("Closed")
-    # threads['recv'].join()
-    # threads['send'].join()
-    # sys.exit()
 
 # Setup socket
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,10 +52,26 @@ def recv():
         return msg
     return RECV_ERROR
 
+def pack_msg(msg:str, username=None, send_to=None):
+    if username == None:
+        username = user
+    if send_to == None:
+        send_to = to
+    msg_packed = {
+        "from": username,
+        "to": send_to,
+        "msg":msg
+        }
+    return json.dumps(msg_packed)
+
 def handle_cmd(msg:str):
-    if re.match('/set-to .*',msg):
+    if msg.startswith('/set-to '):
         global to 
         to = msg[len('/set-to '):]
+    elif msg.startswith('//'):
+        send(pack_msg(msg[1:]))
+    else:
+        print(f'{msg} not a command use // to use / in message')
 
 threads = {}
 
@@ -85,15 +96,10 @@ def thread_send():
     '''thread to listen to user'''
     msg_in = input("Msg: ")
     while msg_in:
-        if re.match('/.*',msg_in):
+        if msg_in.startswith('/'):
             handle_cmd(msg_in)
         else:
-            msg = {
-                "from": user,
-                "to": to,
-                "msg":msg_in
-                }
-            msg = json.dumps(msg)
+            msg = pack_msg(msg_in)
             # print(f"DEBUG: sending {msg}")
             send(msg)
         msg_in = input("Msg: ")
